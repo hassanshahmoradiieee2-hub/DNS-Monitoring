@@ -1,0 +1,42 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Locate project (unzips project.zip if present)
+        run: |
+          if [ -f project.zip ]; then
+            mkdir -p _unzipped
+            unzip -q -o project.zip -d _unzipped
+          fi
+          S=$(find . -name settings.gradle.kts -not -path "./.git/*" | head -1)
+          if [ -z "$S" ]; then echo "settings.gradle.kts not found"; exit 1; fi
+          echo "PROJDIR=$(dirname "$S")" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build debug APK
+        working-directory: ${{ env.PROJDIR }}
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DnsMonitor-apk
+          path: ${{ env.PROJDIR }}/app/build/outputs/apk/debug/*.apk
+          
